@@ -3,6 +3,8 @@
 set -e
 set -o pipefail
 
+BAK_DATETIME=`date +%F-%H%M`
+
 if [ "${S3_ACCESS_KEY_ID}" = "**None**" ]; then
   echo "You need to set the S3_ACCESS_KEY_ID environment variable."
   exit 1
@@ -49,20 +51,30 @@ else
   AWS_ARGS="--endpoint-url ${S3_ENDPOINT}"
 fi
 
+if [ "${PASSPHRASE}" = "**None**" ]; then
+  echo "You need to set the POSTGRES_DATABASE environment variable."
+  exit 1
+fi
+
 # env vars needed for aws tools
 export AWS_ACCESS_KEY_ID=$S3_ACCESS_KEY_ID
 export AWS_SECRET_ACCESS_KEY=$S3_SECRET_ACCESS_KEY
 export AWS_DEFAULT_REGION=$S3_REGION
+
+export PASSPHRASE=$PASSPHRASE
 
 export PGPASSWORD=$POSTGRES_PASSWORD
 POSTGRES_HOST_OPTS="-h $POSTGRES_HOST -p $POSTGRES_PORT -U $POSTGRES_USER $POSTGRES_EXTRA_OPTS"
 
 echo "Creating dump of ${POSTGRES_DATABASE} database from ${POSTGRES_HOST}..."
 
-pg_dump $POSTGRES_HOST_OPTS $POSTGRES_DATABASE | gzip > dump.sql.gz
+pg_dump $POSTGRES_HOST_OPTS $POSTGRES_DATABASE > ${POSTGRES_DATABASE}-${BAK_DATETIME}.dump.sql
+7z a dump.sql.7z -t7z -m0=lzma2:d1024m -mx=9 -aoa -mfb=64 -md=32m -p"$PASSPHRASE" -ms=on ${POSTGRES_DATABASE}-${BAK_DATETIME}.dump.sql
 
 echo "Uploading dump to $S3_BUCKET"
 
-cat dump.sql.gz | aws $AWS_ARGS s3 cp - s3://$S3_BUCKET/$S3_PREFIX/${POSTGRES_DATABASE}_$(date +"%Y-%m-%dT%H:%M:%SZ").sql.gz || exit 2
+s3cmd $AWS_ARGS put dump.sql.7z s3://$S3_BUCKET/$S3_PREFIX/${POSTGRES_DATABASE}_$(date +"%Y-%m-%dT%H:%M:%SZ").sql.7z || exit 2
+
+rm -f ${POSTGRES_DATABASE}-${BAK_DATETIME}.dump.sql && rm -f dump.sql.7z
 
 echo "SQL backup uploaded successfully"

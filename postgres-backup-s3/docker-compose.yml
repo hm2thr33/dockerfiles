@@ -3,6 +3,7 @@ version: '3.7'
 services:
   pgbackups3:
     image: schickling/postgres-backup-s3
+    container_name: postgres-backup-s3
     environment:
       SCHEDULE: '@daily'
       S3_REGION: 'region'
@@ -14,3 +15,4 @@ services:
       POSTGRES_USER: 'user'
       POSTGRES_PASSWORD: 'password'
       POSTGRES_HOST: 'host'
+      PASSPHRASE: 'passphrase'
