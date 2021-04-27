@@ -18,8 +18,11 @@ ENV S3_PATH 'backup'
 ENV S3_ENDPOINT **None**
 ENV S3_S3V4 no
 ENV SCHEDULE **None**
+ENV PASSPHRASE **None**
 
 ADD run.sh run.sh
 ADD backup.sh backup.sh
+
+ADD ./s3cfg /root/.s3cfg
 
 CMD ["sh", "run.sh"]
